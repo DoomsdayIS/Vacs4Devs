@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+
+  postgres-local:
+    image: postgres@sha256:d5f1596ddc41fd01ba0063b798c95431f8468aea4c04b4140f2574e85a631627
+    restart: always
+    container_name: postgres-local
+    ports:
+      - "5454:5432"
+    volumes:
+      - postgresql-local:/var/lib/postgresql/data
+    env_file:
+      - fastapi-app/src/.env
+
+  redis-local:
+    image: redis:7.0.10
+    restart: always
+    container_name: redis-local
+    volumes:
+      - redis-local:/data/
+    ports:
+      - '6377:6379'
+
+volumes:
+  postgresql-local:
+  redis-local:
+

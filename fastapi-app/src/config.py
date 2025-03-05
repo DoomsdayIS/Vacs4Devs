@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     SQLALCHEMY_DATABASE_URL: PostgresDsn | None = None
 
+    GPT_API_KEY: str
+
     @field_validator("SQLALCHEMY_DATABASE_URL", mode="before")
     def assemble_db_connection_string(
         cls, v: PostgresDsn | None, info: FieldValidationInfo

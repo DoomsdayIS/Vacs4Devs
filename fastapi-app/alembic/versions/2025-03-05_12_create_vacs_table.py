@@ -46,6 +46,7 @@ def upgrade() -> None:
                 "GO",
                 "C_PLUS_PLUS",
                 "IOS",
+                "OTHER",
                 name="language",
             ),
             nullable=False,
@@ -56,9 +57,7 @@ def upgrade() -> None:
             nullable=False,
             comment="Мин количество лет опыта",
         ),
-        sa.Column(
-            "link", sa.String(length=2000), nullable=False, comment="Vac link"
-        ),
+        sa.Column("link", sa.String(length=2000), nullable=False, comment="Vac link"),
         sa.Column("company_id", sa.UUID(), nullable=False),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column(
@@ -67,9 +66,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.Column(
-            "deleted_at", postgresql.TIMESTAMP(timezone=True), nullable=True
-        ),
+        sa.Column("deleted_at", postgresql.TIMESTAMP(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
             ["company_id"],
             ["company.id"],

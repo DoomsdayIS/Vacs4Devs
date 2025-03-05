@@ -23,3 +23,4 @@ class Languages(enum.StrEnum):
     GO = enum.auto()
     C_PLUS_PLUS = enum.auto()
     IOS = enum.auto()
+    OTHER = enum.auto()

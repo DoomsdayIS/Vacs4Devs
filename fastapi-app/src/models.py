@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID as PY_UUID
 from uuid import uuid4
 
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, ForeignKey
 from sqlalchemy import (
     String,
     func,
@@ -11,18 +11,20 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ENUM, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
     registry,
+    DeclarativeBase,
+    relationship,
 )
 
-from src.choices import Companies
+from src.choices import Companies, Grades, Languages
 from src.constants import (
     POSTGRES_INDEXES_NAMING_CONVENTION,
     DESCRIPTION_STR_LENGTH,
     URL_LENGTH,
+    NAME_STR_LENGTH,
 )
 
 mapper_registry = registry()
@@ -68,3 +70,23 @@ class Company(Base):
         unique=True,
         comment="",
     )
+
+
+class Vacancy(Base):
+    title: Mapped[str] = mapped_column(String(NAME_STR_LENGTH))
+    grade: Mapped[Grades] = mapped_column(
+        ENUM(Grades, name="vac_grade"),
+    )
+    lang: Mapped[Languages] = mapped_column(
+        ENUM(Languages, name="language"),
+    )
+    experience: Mapped[int] = mapped_column(comment="Мин количество лет опыта")
+    link: Mapped[str] = mapped_column(
+        String(URL_LENGTH),
+        unique=True,
+        comment="Vac link",
+    )
+    company_id: Mapped[PY_UUID] = mapped_column(
+        ForeignKey("company.id", ondelete="CASCADE")
+    )
+    company: Mapped[Company] = relationship(cascade="all, delete")

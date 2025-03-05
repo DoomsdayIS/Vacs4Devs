@@ -1,29 +1,25 @@
 from __future__ import annotations
 
-import asyncio
-import sys
+import json
 import time
-from abc import ABC, abstractmethod, abstractproperty, abstractclassmethod
-
-from openai import OpenAI, AsyncOpenAI
+from abc import ABC, abstractmethod
+from uuid import UUID
 
 import httpx
-import json
 from bs4 import BeautifulSoup
-from pydantic import BaseModel, Field
-from enum import StrEnum
-from uuid import UUID, uuid4
-
-from src.choices import Companies, Grades, Languages
-from src.config import get_settings
-from src.models import Vacancy
-from src.schemas import VacancyCreateSchema
-from selenium import webdriver
 from chromedriver_py import binary_path  # this will get you the path variable
+from openai import AsyncOpenAI
+from pydantic import BaseModel, Field
+from selenium import webdriver
 from selenium.webdriver.common.by import By
+
+from src.choices import Grades, Languages
+from src.config import get_settings
+from src.schemas import VacancyCreateSchema
 
 settings = get_settings()
 gpt_client = AsyncOpenAI(api_key=settings.GPT_API_KEY)
+SELENIUM_SERVICE = webdriver.ChromeService(executable_path=binary_path)
 
 
 VACANCY_ANALYZE_PROMPT = """
@@ -114,10 +110,7 @@ class AviasalesVacancyParser(CompanyVacanciesParser):
 
     @classmethod
     async def get_all_actual_vacancy_links(cls) -> list[VacancyLink]:
-        async with httpx.AsyncClient() as http_client:
-            vacancies_page = await http_client.get(
-                "https://www.aviasales.ru/about/vacancies"
-            )
+        vacancies_page = httpx.get("https://www.aviasales.ru/about/vacancies")
         soup = BeautifulSoup(vacancies_page.text, "html.parser")
         vacancies_links = []
         for link in soup.find_all("a"):
@@ -162,8 +155,7 @@ class SelectelVacancyParser(CompanyVacanciesParser):
 
     @classmethod
     async def get_all_actual_vacancy_links(cls) -> list[VacancyLink]:
-        svc = webdriver.ChromeService(executable_path=binary_path)
-        driver = webdriver.Chrome(service=svc)
+        driver = webdriver.Chrome(service=SELENIUM_SERVICE)
         driver.get("https://selectel.ru/careers/all?code=backend,frontend")
         elements = driver.find_elements(By.CLASS_NAME, "card__link")
         vacancies_links = []
@@ -171,6 +163,7 @@ class SelectelVacancyParser(CompanyVacanciesParser):
             vacancies_links.append(
                 VacancyLink(link_text=element.get_attribute("href"), parser_class=cls)
             )
+        driver.close()
         return vacancies_links
 
     @classmethod
@@ -208,8 +201,7 @@ class X5VacancyParser(CompanyVacanciesParser):
 
     @classmethod
     async def get_all_actual_vacancy_links(cls) -> list[VacancyLink]:
-        svc = webdriver.ChromeService(executable_path=binary_path)
-        driver = webdriver.Chrome(service=svc)
+        driver = webdriver.Chrome(service=SELENIUM_SERVICE)
         driver.get("https://x5-tech.ru/vacancy?directionIds=660e855270131eafa8d27678")
         spt = 0.3
         last_height = driver.execute_script("return document.body.scrollHeight")
@@ -230,7 +222,7 @@ class X5VacancyParser(CompanyVacanciesParser):
             vacancies_links.append(
                 VacancyLink(link_text=text[:qst_index], parser_class=cls)
             )
-
+        driver.close()
         return vacancies_links
 
     @classmethod
@@ -260,3 +252,6 @@ class X5VacancyParser(CompanyVacanciesParser):
             vacancy_info=vacancy_info,
             vacancy_link_text=vacancy_link_text,
         )
+
+
+ALL_ACTUAL_PARSERS = [AviasalesVacancyParser, SelectelVacancyParser, X5VacancyParser]

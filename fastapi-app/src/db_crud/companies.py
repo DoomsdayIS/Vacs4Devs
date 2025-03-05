@@ -7,8 +7,13 @@ from sqlalchemy import select
 from src.schemas import CompanyCreateSchema
 
 
-async def get_all_companies(session: AsyncSession) -> Sequence[Company]:
+async def get_all_companies(
+    session: AsyncSession,
+    deleted: bool,
+) -> Sequence[Company]:
     stmt = select(Company).order_by(Company.created_at)
+    if not deleted:
+        stmt = stmt.filter(Company.deleted_at.is_(None))
     result = await session.scalars(stmt)
     return result.all()
 

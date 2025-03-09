@@ -1,15 +1,11 @@
 import contextlib
-from asyncio import current_task
-from contextlib import asynccontextmanager
-from typing import Annotated, AsyncIterator
+from typing import AsyncIterator
 
-from fastapi import Depends
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncEngine,
     AsyncSession,
-    async_scoped_session,
     async_sessionmaker,
     create_async_engine,
 )
@@ -88,19 +84,3 @@ sessionmanager = DatabaseSessionManager()
 async def get_async_session():
     async with sessionmanager.session() as session:
         yield session
-
-
-@asynccontextmanager
-async def scoped_session():
-    scoped_factory = async_scoped_session(
-        get_async_session,
-        scopefunc=current_task,
-    )
-    try:
-        async with scoped_factory() as s:
-            yield s
-    finally:
-        await scoped_factory.remove()
-
-
-ScopedSession = Annotated[AsyncSession, Depends(scoped_session)]

@@ -5,7 +5,7 @@ from pydantic import (
     PostgresDsn,
     field_validator,
 )
-from pydantic_core.core_schema import FieldValidationInfo
+from pydantic_core.core_schema import ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     @field_validator("SQLALCHEMY_DATABASE_URL", mode="before")
     def assemble_db_connection_string(
-        cls, v: PostgresDsn | None, info: FieldValidationInfo
+        cls, v: PostgresDsn | None, info: ValidationInfo
     ) -> str | PostgresDsn:
         if isinstance(v, str):
             return v

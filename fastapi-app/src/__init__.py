@@ -17,8 +17,9 @@ def init_app(init_db=True):
 
         yield
         # on shutdown
-        if sessionmanager._engine is not None:
-            await sessionmanager.close()
+        if init_db:
+            if sessionmanager._engine is not None:
+                await sessionmanager.close()
 
     server = FastAPI(
         title=settings.TITLE,

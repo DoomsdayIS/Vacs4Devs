@@ -8,8 +8,8 @@ from src.choices import Companies
 
 class CompanyBaseSchema(BaseModel):
     name: Companies
-    description: str | None
-    company_url: str | None
+    description: str | None = None
+    company_url: str | None = None
     company_vacs_url: str
 
 

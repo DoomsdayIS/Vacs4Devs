@@ -25,7 +25,7 @@ async def daily_vacancy_processing(session: AsyncSession):
     )
     vacancies_dict = {}
     for vacancy in vacancies_models:
-        vacancies_dict[vacancy.link] = [vacancy, True]
+        vacancies_dict[vacancy.Vacancy.link] = [vacancy.Vacancy, True]
 
     all_vacancies = []
     for parser in ALL_ACTUAL_PARSERS:
@@ -38,7 +38,6 @@ async def daily_vacancy_processing(session: AsyncSession):
             new_vacancies.append(vac_link)
         else:
             vacancies_dict[vac_link.link_text][1] = False
-    print(len(new_vacancies))
 
     objs_to_update = {}
     for link, vac in vacancies_dict.items():

@@ -79,7 +79,7 @@ class CompanyVacanciesParser(ABC):
     @classmethod
     @abstractmethod
     async def vacancy_schema_from_vacancy_link(
-        cls, vacancy_link: VacancyLink
+        cls, vacancy_link_text: str
     ) -> VacancyCreateSchema | None:
         pass
 

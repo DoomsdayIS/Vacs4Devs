@@ -8,7 +8,7 @@ from pydantic import (
 from pydantic_core.core_schema import FieldValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ROOT_DIR = Path(__file__).resolve(strict=True).parent
+ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent
 
 
 class Settings(BaseSettings):

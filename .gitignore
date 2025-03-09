@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
-fastapi-app/src/.env
+fastapi-app/.env
+fastapi-app/.test.env
 data/
 .idea
 .pytest_cache

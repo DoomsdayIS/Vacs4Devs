@@ -11,7 +11,7 @@ services:
     volumes:
       - postgresql-local:/var/lib/postgresql/data
     env_file:
-      - fastapi-app/src/.env
+      - fastapi-app/.env
 
   redis-local:
     image: redis:7.0.10

@@ -2,6 +2,7 @@ __pycache__/
 .venv/
 fastapi-app/.env
 fastapi-app/.test.env
+postgres/
 data/
 .idea
 .pytest_cache

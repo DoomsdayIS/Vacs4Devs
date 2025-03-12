@@ -1,0 +1,76 @@
+services:
+  nginx:
+    image: nginx:1.26.1-alpine
+    ports:
+      - 8000:8000
+    configs:
+      - source: nginx_config
+        target: /etc/nginx/nginx.conf
+    networks:
+      - public
+    depends_on:
+      backend:
+        condition: service_healthy
+  backend:
+    image: noyon/vacs4devs
+    pull_policy: never
+    container_name: vacs4devs-backend
+    build:
+      context: ./fastapi-app
+      dockerfile: Dockerfile
+    command: bash -c "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000"
+    env_file:
+      - fastapi-app/.env
+    networks:
+      - private
+      - public
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck"]
+      interval: 5s
+      retries: 5
+      start_period: 15s
+      timeout: 5s
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+  postgres_db:
+    image: postgres:16.8
+    container_name: vacs4devs-postgres
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+    env_file:
+      - postgres/.env
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD","pg_isready", "-U", "database", "-d", "database"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+  redis_db:
+    image: redis:7.0.10
+    restart: always
+    container_name: vacs4devs-redis
+    networks:
+      - private
+  selenium_std:
+    image: selenium/standalone-chrome:134.0-chromedriver-134.0-20250303
+    restart: always
+    container_name: vacs4devs-selenium
+    networks:
+      - private
+    shm_size: '2gb'
+
+configs:
+  nginx_config:
+    file: ./nginx.conf
+
+networks:
+  public:
+  private:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: "10.0.0.0/19"
+          gateway: "10.0.0.1"

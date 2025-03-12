@@ -1,9 +1,7 @@
-version: "3.8"
-
 services:
 
   postgres-local:
-    image: postgres@sha256:d5f1596ddc41fd01ba0063b798c95431f8468aea4c04b4140f2574e85a631627
+    image: postgres:15.2
     restart: always
     container_name: postgres-local
     ports:
@@ -21,6 +19,15 @@ services:
       - redis-local:/data/
     ports:
       - '6377:6379'
+
+  selenium-local:
+    image: selenium/standalone-chrome:134.0-chromedriver-134.0-20250303
+    restart: always
+    container_name: selenium-local
+    ports:
+      - 4444:4444
+      - 7900:7900
+    shm_size: '2gb'
 
 volumes:
   postgresql-local:

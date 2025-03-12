@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     SQLALCHEMY_DATABASE_URL: PostgresDsn | None = None
 
+    REDIS_HOST: str
+    REDIS_PORT: str
+
+    SELENIUM_HOST: str
+
     GPT_API_KEY: str
 
     @field_validator("SQLALCHEMY_DATABASE_URL", mode="before")

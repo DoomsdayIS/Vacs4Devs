@@ -3,23 +3,22 @@ from __future__ import annotations
 import json
 import time
 from abc import ABC, abstractmethod
-from uuid import UUID
 
 import httpx
 from bs4 import BeautifulSoup
-from chromedriver_py import binary_path  # this will get you the path variable
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, PermissionDeniedError
 from pydantic import BaseModel, Field
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.choices import Grades, Languages
+from src.choices import Grades, Languages, Companies
 from src.config import get_settings
+from src.db_crud.companies import get_all_companies
 from src.schemas import VacancyCreateSchema
 
 settings = get_settings()
-gpt_client = AsyncOpenAI(api_key=settings.GPT_API_KEY)
-SELENIUM_SERVICE = webdriver.ChromeService(executable_path=binary_path)
+gpt_client = AsyncOpenAI(api_key=settings.GPT_API_KEY, timeout=5)
 
 
 VACANCY_ANALYZE_PROMPT = """
@@ -31,12 +30,15 @@ intern: 0, junior:1, middle: 2, senior: 3, team_lead: 3
 2) один основной требуемый язык программирования в вакансии из списка: (go, python, java, ios, c_sharp, frontend, ios, other).
 frontend это javasript, ios как правило это swift. other это когда основного языка, который требуется в вакансии, в вакансии нет в списке. 
 3) ожидаемый уровень кандидата: junior, middle, senior, team_lead, intern. Если в вакансии прямо не указан требуемый уровень кандидата, считать по умолчанию middle
+4) является ли вакансия вакансией разработчика/developer-а/тимлида/: вернуть 1 если является, 0 если это вакансия менеджера, аналитика, маркетолога и т.п.
+В близких ситуациях лучше возвращать 1. Если выявлен язык программирования ( не other ) то всегда возвращать 1.
 Ты должен вернуть json объект, который будет представлять информацию в следующем виде:
 
 {
     experience: int or None // Целое число лет ожидаемого опыта от кандидата,
     grade: string // (junior, middle, senior, team_lead, intern),
     lang: string // (go, python, java, ios, c_sharp, frontend, ios, other)
+    is_dev" int // 0 или 1 
 }
 
 """
@@ -62,13 +64,16 @@ class GptResponse(BaseModel):
     grade: Grades
     experience: int = Field(ge=0)
     lang: Languages
+    is_dev: int = Field(ge=0, le=1)
 
 
 class CompanyVacanciesParser(ABC):
 
+    company_id = None
+
     @property
     @abstractmethod
-    def company_id(self):
+    def company_name(self):
         raise NotImplementedError
 
     @classmethod
@@ -89,6 +94,8 @@ class CompanyVacanciesParser(ABC):
     ):
         gpt_response = await gpt_analyze_vacancy_info(vacancy_info)
         gpt_response = GptResponse(**json.loads(gpt_response))
+        if gpt_response.is_dev == 0:
+            return None
         return VacancyCreateSchema(
             title=vacancy_title,
             grade=gpt_response.grade,
@@ -106,7 +113,7 @@ class VacancyLink:
 
 
 class AviasalesVacancyParser(CompanyVacanciesParser):
-    company_id = UUID("c2fbc96f-2484-4c37-95d4-9fc60d5b6b8e")
+    company_name = Companies.AVIASALES
 
     @classmethod
     async def get_all_actual_vacancy_links(cls) -> list[VacancyLink]:
@@ -151,19 +158,30 @@ class AviasalesVacancyParser(CompanyVacanciesParser):
 
 
 class SelectelVacancyParser(CompanyVacanciesParser):
-    company_id = UUID("67d25972-a93b-4da0-bfaa-5d8d3a8de78b")
+    company_name = Companies.SELECTEL
 
     @classmethod
     async def get_all_actual_vacancy_links(cls) -> list[VacancyLink]:
-        driver = webdriver.Chrome(service=SELENIUM_SERVICE)
+        options = webdriver.ChromeOptions()
+        options.add_argument("--ignore-ssl-errors=yes")
+        options.add_argument("--ignore-certificate-errors")
+        driver = webdriver.Remote(
+            command_executor=f"http://{settings.SELENIUM_HOST}:4444/wd/hub",
+            options=options,
+        )
         driver.get("https://selectel.ru/careers/all?code=backend,frontend")
         elements = driver.find_elements(By.CLASS_NAME, "card__link")
         vacancies_links = []
         for element in elements:
-            vacancies_links.append(
-                VacancyLink(link_text=element.get_attribute("href"), parser_class=cls)
+            link_text = element.get_attribute("href")
+            r_index = link_text.rindex("/", 0, -1)
+            link_text = (
+                "https://api.selectel.ru/proxy/public/employee/api/public/vacancies/"
+                + link_text[r_index + 1 : -1]
             )
+            vacancies_links.append(VacancyLink(link_text=link_text, parser_class=cls))
         driver.close()
+        driver.quit()
         return vacancies_links
 
     @classmethod
@@ -172,23 +190,15 @@ class SelectelVacancyParser(CompanyVacanciesParser):
     ) -> VacancyCreateSchema | None:
         async with httpx.AsyncClient() as http_client:
             vacancy_page = await http_client.get(vacancy_link_text)
-        soup = BeautifulSoup(vacancy_page.text, "html.parser")
         try:
-            vacancy_title = soup.find("title").text
-            vacancy_desc = soup.find("div", class_="short-info__description").find_all(
-                "p"
-            )
-            vd = []
-            for d in vacancy_desc:
-                vd.append(d.text)
-            vacancy_desc = " ".join(vd)
-            vacancy_reqs = soup.find("div", class_="vacancy__about").find_all("ul")[1]
-        except AttributeError:
+            vac_dict_info = json.loads(vacancy_page.text)
+            vacancy_title = vac_dict_info["title"]
+            vacancy_desc = vac_dict_info["detailed_desc"]
+        except (TypeError, KeyError, AttributeError):
             return None
-
-        if not vacancy_reqs or not vacancy_title or not vacancy_desc:
+        if not vacancy_title or not vacancy_desc:
             return None
-        vacancy_info = f"Название вакансии {vacancy_title}. Описание: {vacancy_desc}. Требования: {vacancy_reqs}"
+        vacancy_info = f"Название вакансии {vacancy_title}. Описание: {vacancy_desc}"
         return await cls._create_vacancy_schema(
             vacancy_title=vacancy_title,
             vacancy_info=vacancy_info,
@@ -197,13 +207,19 @@ class SelectelVacancyParser(CompanyVacanciesParser):
 
 
 class X5VacancyParser(CompanyVacanciesParser):
-    company_id = UUID("96b7a729-b1a0-4e94-80f8-57a9350daafd")
+    company_name = Companies.X5
 
     @classmethod
     async def get_all_actual_vacancy_links(cls) -> list[VacancyLink]:
-        driver = webdriver.Chrome(service=SELENIUM_SERVICE)
+        options = webdriver.ChromeOptions()
+        options.add_argument("--ignore-ssl-errors=yes")
+        options.add_argument("--ignore-certificate-errors")
+        driver = webdriver.Remote(
+            command_executor=f"http://{settings.SELENIUM_HOST}:4444/wd/hub",
+            options=options,
+        )
         driver.get("https://x5-tech.ru/vacancy?directionIds=660e855270131eafa8d27678")
-        spt = 0.3
+        spt = 1
         last_height = driver.execute_script("return document.body.scrollHeight")
 
         while True:
@@ -218,11 +234,12 @@ class X5VacancyParser(CompanyVacanciesParser):
         vacancies_links = []
         for element in elements:
             text = element.get_attribute("href")
-            qst_index = text.rindex("?")
-            vacancies_links.append(
-                VacancyLink(link_text=text[:qst_index], parser_class=cls)
-            )
+            qst_index = text.rindex("?") if "?" in text else None
+            if qst_index is not None:
+                text = text[:qst_index]
+            vacancies_links.append(VacancyLink(link_text=text, parser_class=cls))
         driver.close()
+        driver.quit()
         return vacancies_links
 
     @classmethod
@@ -255,3 +272,27 @@ class X5VacancyParser(CompanyVacanciesParser):
 
 
 ALL_ACTUAL_PARSERS = [AviasalesVacancyParser, SelectelVacancyParser, X5VacancyParser]
+
+
+async def add_company_id_to_parsers(session: AsyncSession):
+    companies = await get_all_companies(session, deleted=False)
+    companies_dict = {}
+    for company in companies:
+        companies_dict[company.name] = company.id
+    for parser in ALL_ACTUAL_PARSERS:
+        parser.company_id = (
+            companies_dict[parser.company_name]
+            if parser.company_name in companies_dict
+            else None
+        )
+
+
+async def test_openai():
+    try:
+        await gpt_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "Write hello world"}],
+        )
+    except PermissionDeniedError:
+        return False
+    return True

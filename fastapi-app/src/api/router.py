@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 
 from src.config import get_settings
-from src.api.endpoints import vacancies_router, companies_router
+from src.api.endpoints import vacancies_router, companies_router, subs_router
 
 settings = get_settings()
 
@@ -9,3 +9,4 @@ settings = get_settings()
 main_router = APIRouter()
 main_router.include_router(vacancies_router, prefix="/vacancies", tags=["Вакансии"])
 main_router.include_router(companies_router, prefix="/companies", tags=["Компании"])
+main_router.include_router(subs_router, prefix="/subscribers", tags=["Подписчики"])

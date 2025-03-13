@@ -90,3 +90,12 @@ class Vacancy(Base):
         ForeignKey("company.id", ondelete="CASCADE")
     )
     company: Mapped[Company] = relationship(cascade="all, delete")
+
+
+class Subscriber(Base):
+    name: Mapped[str] = mapped_column(String(NAME_STR_LENGTH))
+    email: Mapped[str] = mapped_column(String(NAME_STR_LENGTH), unique=True)
+    lang: Mapped[Languages] = mapped_column(
+        ENUM(Languages, name="language"),
+    )
+    grade: Mapped[Grades] = mapped_column(ENUM(Grades, name="vac_grade"), nullable=True)

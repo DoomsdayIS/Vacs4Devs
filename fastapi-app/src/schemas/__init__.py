@@ -9,3 +9,10 @@ from src.schemas.vacancies import (
     VacancyCreateSchema,
     VacancyRetrieveSchema,
 )
+
+from src.schemas.subscribers import (
+    SubscriberBaseSchema,
+    SubscriberRetrieveSchema,
+    SubscriberCreateSchema,
+    SubscriberUpdateSchema,
+)

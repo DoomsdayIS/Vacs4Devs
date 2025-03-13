@@ -24,3 +24,8 @@ class Languages(enum.StrEnum):
     C_PLUS_PLUS = enum.auto()
     IOS = enum.auto()
     OTHER = enum.auto()
+
+
+class TimeTrendMode(enum.Enum):
+    WEEK = "7"
+    MONTH = "30"

@@ -30,3 +30,12 @@ class VacancyRetrieveSchema(VacancyBaseSchema):
 
 class VacancyWithCompanyNameSchema(VacancyRetrieveSchema):
     company_name: Companies
+
+
+class VacanciesGeneralInfoSchema(BaseModel):
+    all: int = Field(ge=0)
+    active: int = Field(ge=0)
+    lang_distribution: dict[Languages, int] | None = None
+    company_distribution: dict[Companies, int] | None = None
+    grade_distribution: dict[Grades, int] | None = None
+    avg_vacancy_lifetime: float | None = None
